@@ -1,4 +1,5 @@
 import { loadDashboardSnapshot, loadLiveBreakdown } from "./supabase-dashboard.js";
+import { closeCandidateFilter, createCandidateFilter, filterCandidateRows, getCandidateFilterKey, hasOpenCandidateFilter } from "./candidate-filter.js";
 
 // ===========================================================================
 // Barangay Vote Breakdown Controller - Executive Civic Edition
@@ -306,11 +307,24 @@ function renderSkeleton() {
   `;
 }
 
+function renderWithFilter(focusedCandidate = "", filterKey = "") {
+  const { scrollX, scrollY } = window;
+  const previousHeight = content?.offsetHeight || 0;
+  if (content) content.style.minHeight = hasOpenCandidateFilter() && previousHeight ? `${previousHeight}px` : "";
+  render();
+  requestAnimationFrame(() => {
+    if (focusedCandidate && filterKey) {
+      document.querySelector(`.candidate-filter-mount input[data-candidate-name="${CSS.escape(focusedCandidate)}"][data-filter-key="${CSS.escape(filterKey)}"]`)?.focus({ preventScroll: true });
+    }
+    window.scrollTo(scrollX, scrollY);
+  });
+}
+
 function makeTableCard(title, categoryKey, rows, barangays, sectorTagText) {
   const query = searchQuery.trim().toLowerCase();
   const orderedRows = [...(rows || [])].sort((a, b) => Number(b.total || 0) - Number(a.total || 0) || (a.ballot_order || 9999) - (b.ballot_order || 9999) || a.name.localeCompare(b.name));
 
-  const filteredRows = query
+  const searchedRows = query
     ? orderedRows.filter(
         (r) =>
           r.name.toLowerCase().includes(query) ||
@@ -319,28 +333,8 @@ function makeTableCard(title, categoryKey, rows, barangays, sectorTagText) {
       )
     : orderedRows;
 
-  if (filteredRows.length === 0) {
-    if (query) {
-      return null; // Don't render empty cards when searching if no matches
-    }
-    const emptyCard = document.createElement("article");
-    emptyCard.className = "group-card";
-    emptyCard.innerHTML = `
-      <header class="group-card-header">
-        <div class="group-header-info">
-          <span class="group-avatar-badge">${categoryKey === "party_list" ? '<i data-lucide="landmark"></i>' : '<i data-lucide="users"></i>'}</span>
-          <div class="group-title-stack">
-            <div class="group-badge-line">
-              <span class="group-tag ${categoryKey === "party_list" ? "party-tag" : "sector-tag"}">${categoryKey === "party_list" ? "POLITICAL PARTY" : (sectorTagText ? sectorTagText.toUpperCase() : "SECTORAL")}</span>
-            </div>
-            <h3 class="group-card-title">${title}</h3>
-          </div>
-        </div>
-      </header>
-      <div class="empty-row" style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.88rem;">No entries found.</div>
-    `;
-    return emptyCard;
-  }
+  const filterKey = getCandidateFilterKey(categoryKey, title);
+  const filteredRows = filterCandidateRows(filterKey, searchedRows);
 
   const totalVotesInGroup = filteredRows.reduce((sum, r) => sum + (r.total || 0), 0);
   const cardCatClass = categoryKey === "party_list" ? "group-party" : categoryKey === "district" ? "group-district" : "group-sectoral";
@@ -361,12 +355,18 @@ function makeTableCard(title, categoryKey, rows, barangays, sectorTagText) {
           <h3 class="group-card-title">${formatContestTitleHtml(title, categoryKey)}</h3>
         </div>
       </div>
-      <div class="group-header-stats">
-        <span class="stat-pill"><i data-lucide="user-check"></i> <strong>${filteredRows.length}</strong> Candidates</span>
-        <span class="stat-pill"><i data-lucide="vote"></i> <strong>${totalVotesInGroup.toLocaleString()}</strong> Votes</span>
+      <div class="group-header-actions">
+        <div class="group-header-stats">
+          <span class="stat-pill"><i data-lucide="user-check"></i> <strong>${filteredRows.length}</strong> Candidates</span>
+          <span class="stat-pill"><i data-lucide="vote"></i> <strong>${totalVotesInGroup.toLocaleString()}</strong> Votes</span>
+        </div>
       </div>
     </header>
   `;
+  const filterMount = document.createElement("div");
+  filterMount.className = "candidate-filter-mount province-column-filter";
+  card.querySelector(".group-header-actions").append(filterMount);
+  createCandidateFilter({ mount: filterMount, card, categoryKey, title, rows, onChange: renderWithFilter });
 
   const wrap = document.createElement("div");
   wrap.className = "table-wrap province-table-wrap";
@@ -402,6 +402,11 @@ function makeTableCard(title, categoryKey, rows, barangays, sectorTagText) {
 
   // Tbody
   const body = document.createElement("tbody");
+  if (filteredRows.length === 0) {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td colspan="${(barangays || []).length + 2}" class="empty-row">No candidates selected.</td>`;
+    body.append(row);
+  }
 
   filteredRows.forEach((entry, idx) => {
     const row = document.createElement("tr");
@@ -643,6 +648,13 @@ if (searchInput) {
     render();
   });
 }
+
+document.addEventListener("click", (event) => {
+  if (hasOpenCandidateFilter() && !event.target.closest(".candidate-filter-mount") && closeCandidateFilter()) renderWithFilter();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && closeCandidateFilter()) renderWithFilter();
+});
 
 // Copy Summary Action
 if (copyBtn) {

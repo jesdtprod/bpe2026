@@ -43,8 +43,8 @@ let currentCategory = "all"; // Sequence: all, Political Party, district rep, se
 let currentSubfilter = "all";
 let isGrouped = true;
 let isProvinceBreakdown = false;
-let visiblePartyNames = null;
-let partyFilterOpen = false;
+const visibleCandidateNames = new Map();
+let activeCandidateFilterKey = null;
 
 // ==========================================================================
 // Helper functions for Contest Titles & Groups
@@ -206,24 +206,30 @@ function setSkeletonLoading(isLoading) {
       const rowSkeleton = `
         <tr class="skeleton-row">
           <td class="ballot-col">
-            <span class="skeleton" style="width: 32px; height: 28px; border-radius: 8px;"></span>
+            <span class="skeleton" style="width: 32px; height: 28px; border-radius: 8px; display: inline-block;"></span>
           </td>
           <td class="rank-col">
-            <span class="skeleton" style="width: 28px; height: 28px; border-radius: 50%;"></span>
+            <span class="skeleton" style="width: 30px; height: 30px; border-radius: 50%; display: inline-block;"></span>
           </td>
           <td class="party-cell">
-            <span class="skeleton" style="width: 150px; height: 16px; border-radius: 4px; margin-bottom: 5px;"></span>
-            <span class="skeleton" style="width: 90px; height: 12px; border-radius: 4px;"></span>
+            <div class="skeleton-stack" style="display: flex; flex-direction: column; gap: 5px;">
+              <span class="skeleton" style="width: 160px; max-width: 80%; height: 16px; border-radius: 4px;"></span>
+              <span class="skeleton" style="width: 90px; max-width: 50%; height: 12px; border-radius: 4px;"></span>
+            </div>
           </td>
           <td class="share-col">
             <div class="share-cell">
-              <span class="skeleton" style="width: 45px; height: 14px; border-radius: 4px; margin-bottom: 5px;"></span>
-              <div class="skeleton" style="width: 120px; height: 8px; border-radius: 999px;"></div>
+              <div class="share-meta">
+                <span class="skeleton" style="width: 45px; height: 14px; border-radius: 4px;"></span>
+              </div>
+              <div class="skeleton" style="width: 100%; height: 7px; border-radius: 9999px;"></div>
             </div>
           </td>
           <td class="votes-column vote-total">
-            <span class="skeleton" style="width: 85px; height: 18px; border-radius: 4px; margin-left: auto; margin-bottom: 5px;"></span>
-            <span class="skeleton" style="width: 105px; height: 12px; border-radius: 4px; margin-left: auto;"></span>
+            <div class="skeleton-stack" style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+              <span class="skeleton" style="width: 85px; height: 18px; border-radius: 4px;"></span>
+              <span class="skeleton" style="width: 105px; height: 12px; border-radius: 4px;"></span>
+            </div>
           </td>
         </tr>
       `;
@@ -238,9 +244,11 @@ function setSkeletonLoading(isLoading) {
                 <span class="skeleton" style="width:210px;height:22px;margin-top:5px;border-radius:4px;"></span>
               </div>
             </div>
-            <div class="group-header-stats">
-              <span class="skeleton stat-pill" style="width:95px;height:28px;"></span>
-              <span class="skeleton stat-pill" style="width:120px;height:28px;"></span>
+            <div class="group-header-actions">
+              <div class="group-header-stats">
+                <span class="skeleton stat-pill" style="width:95px;height:32px;"></span>
+                <span class="skeleton stat-pill" style="width:120px;height:32px;"></span>
+              </div>
             </div>
           </header>
           <div class="table-wrap">
@@ -405,17 +413,30 @@ function getContestsForActiveCategory() {
   return filtered;
 }
 
-function getPoliticalPartyNames(contest) {
+function getContestFilterKey(contest) {
+  return `${contest.categoryKey}|${contest.contest_name}`;
+}
+
+function getCandidateNames(contest) {
   return [...new Set(contest.candidates.map((candidate) => candidate.name))]
     .sort((a, b) => a.localeCompare(b));
 }
 
-function isVisiblePartyCandidate(candidate, categoryKey) {
-  return categoryKey !== "party_list" || !visiblePartyNames || visiblePartyNames.has(candidate.name);
+function isVisibleCandidate(candidate, contest) {
+  const selected = visibleCandidateNames.get(getContestFilterKey(contest));
+  return !selected || selected.has(candidate.name);
+}
+
+function hasEmptyCandidateFilter(contest) {
+  return visibleCandidateNames.get(getContestFilterKey(contest))?.size === 0;
 }
 
 function renderCurrentViewPreservingScroll(focusedPartyName = "") {
   const { scrollX, scrollY } = window;
+  const previousResultsHeight = groupsContainer?.offsetHeight || 0;
+  if (groupsContainer) {
+    groupsContainer.style.minHeight = activeCandidateFilterKey && previousResultsHeight ? `${previousResultsHeight}px` : "";
+  }
   renderCurrentView();
   requestAnimationFrame(() => {
     if (focusedPartyName) {
@@ -427,65 +448,98 @@ function renderCurrentViewPreservingScroll(focusedPartyName = "") {
   });
 }
 
-function createPartyFilterControl(contest) {
+function createCandidateFilterControl(contest) {
   const control = document.createElement("div");
   control.className = "party-filter-control";
-  const partyNames = getPoliticalPartyNames(contest);
-  const selectedCount = visiblePartyNames ? visiblePartyNames.size : partyNames.length;
+  const candidateNames = getCandidateNames(contest);
+  const filterKey = getContestFilterKey(contest);
+  const selected = visibleCandidateNames.get(filterKey);
+  const selectedCount = selected ? selected.size : candidateNames.length;
+  const isFiltered = selected !== undefined;
+  const isOpen = activeCandidateFilterKey === filterKey;
+  const subject = contest.categoryKey === "party_list" ? "political parties" : "candidates";
 
   const button = document.createElement("button");
   button.type = "button";
-  button.className = `btn btn-ghost btn-icon-only party-filter-button ${visiblePartyNames ? "is-filtered" : ""}`;
-  button.title = "Filter political parties";
-  button.setAttribute("aria-label", "Filter political parties");
-  button.setAttribute("aria-expanded", String(partyFilterOpen));
-  button.innerHTML = '<i data-lucide="list-filter" class="btn-icon"></i>';
+  button.className = `btn btn-ghost btn-icon-only party-filter-button ${isFiltered ? "is-filtered" : ""} ${isOpen ? "is-active" : ""}`;
+  button.title = `Filter ${subject}`;
+  button.setAttribute("aria-label", `Filter ${subject}`);
+  button.setAttribute("aria-expanded", String(isOpen));
+  button.innerHTML = `
+    <svg class="btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="4" y1="6" x2="20" y2="6"></line>
+      <line x1="7" y1="12" x2="17" y2="12"></line>
+      <line x1="10" y1="18" x2="14" y2="18"></line>
+    </svg>
+    ${isFiltered ? '<span class="party-filter-indicator" aria-hidden="true"></span>' : ""}
+  `;
   button.onclick = (event) => {
     event.stopPropagation();
-    partyFilterOpen = !partyFilterOpen;
-    renderCurrentView();
+    activeCandidateFilterKey = isOpen ? null : filterKey;
+    renderCurrentViewPreservingScroll();
   };
   control.append(button);
 
-  if (!partyFilterOpen) return control;
+  if (!isOpen) return control;
 
   const menu = document.createElement("div");
   menu.className = "party-filter-menu";
   menu.setAttribute("role", "dialog");
-  menu.setAttribute("aria-label", "Filter political parties");
+  menu.setAttribute("aria-label", `Filter ${subject}`);
   menu.innerHTML = `
     <div class="party-filter-menu-head">
-      <strong>Show political parties</strong>
-      <span>${selectedCount} of ${partyNames.length}</span>
+      <strong class="party-filter-title">Show ${subject}</strong>
+      <span class="party-filter-badge">${selectedCount} of ${candidateNames.length}</span>
     </div>
     <div class="party-filter-menu-actions">
-      <button type="button" class="party-filter-text-action" data-party-filter-action="all">Select all</button>
-      <button type="button" class="party-filter-text-action" data-party-filter-action="none">Deselect all</button>
+      <button type="button" class="party-filter-action-btn" data-party-filter-action="all">
+        <i data-lucide="check-check" class="action-icon"></i>
+        <span>Select all</span>
+      </button>
+      <button type="button" class="party-filter-action-btn" data-party-filter-action="none">
+        <i data-lucide="x" class="action-icon"></i>
+        <span>Deselect all</span>
+      </button>
     </div>
     <div class="party-filter-options"></div>
   `;
   menu.querySelectorAll("[data-party-filter-action]").forEach((action) => {
     action.onclick = (event) => {
       event.stopPropagation();
-      visiblePartyNames = action.dataset.partyFilterAction === "all" ? null : new Set();
+      if (action.dataset.partyFilterAction === "all") visibleCandidateNames.delete(filterKey);
+      else visibleCandidateNames.set(filterKey, new Set());
       renderCurrentViewPreservingScroll();
     };
   });
   const options = menu.querySelector(".party-filter-options");
-  partyNames.forEach((name) => {
+  candidateNames.forEach((name) => {
+    const isChecked = !selected || selected.has(name);
     const option = document.createElement("label");
-    option.className = "party-filter-option";
+    option.className = `party-filter-option ${isChecked ? "is-checked" : ""}`;
+    
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.dataset.partyName = name;
-    checkbox.checked = !visiblePartyNames || visiblePartyNames.has(name);
+    checkbox.checked = isChecked;
+    checkbox.className = "party-filter-checkbox-input";
     checkbox.onchange = () => {
-      const selected = new Set(visiblePartyNames || partyNames);
-      checkbox.checked ? selected.add(name) : selected.delete(name);
-      visiblePartyNames = selected.size === partyNames.length ? null : selected;
+      const nextSelection = new Set(selected || candidateNames);
+      checkbox.checked ? nextSelection.add(name) : nextSelection.delete(name);
+      if (nextSelection.size === candidateNames.length) visibleCandidateNames.delete(filterKey);
+      else visibleCandidateNames.set(filterKey, nextSelection);
       renderCurrentViewPreservingScroll(name);
     };
-    option.append(checkbox, document.createTextNode(name));
+
+    const customCheck = document.createElement("span");
+    customCheck.className = "party-filter-custom-check";
+    customCheck.setAttribute("aria-hidden", "true");
+    customCheck.innerHTML = '<svg class="check-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline></svg>';
+
+    const labelText = document.createElement("span");
+    labelText.className = "party-filter-name";
+    labelText.textContent = name;
+
+    option.append(checkbox, customCheck, labelText);
     options.append(option);
   });
   control.append(menu);
@@ -583,17 +637,17 @@ function renderCurrentView() {
   if (query) {
     contests = contests.map((c) => {
       const filteredCandidates = c.candidates.filter((cand) => {
-        return isVisiblePartyCandidate(cand, c.categoryKey) && (cand.name.toLowerCase().includes(query) ||
+        return isVisibleCandidate(cand, c) && (cand.name.toLowerCase().includes(query) ||
                c.contest_name.toLowerCase().includes(query) ||
                c.friendly_name.toLowerCase().includes(query));
       });
       return { ...c, candidates: filteredCandidates };
-    }).filter((c) => c.candidates.length > 0 || (c.categoryKey === "party_list" && visiblePartyNames?.size === 0));
+    }).filter((c) => c.candidates.length > 0 || hasEmptyCandidateFilter(c));
   } else {
     contests = contests.map((c) => ({
       ...c,
-      candidates: c.candidates.filter((cand) => isVisiblePartyCandidate(cand, c.categoryKey))
-    })).filter((c) => c.candidates.length > 0 || (c.categoryKey === "party_list" && visiblePartyNames?.size === 0));
+      candidates: c.candidates.filter((cand) => isVisibleCandidate(cand, c))
+    })).filter((c) => c.candidates.length > 0 || hasEmptyCandidateFilter(c));
   }
 
   // Compute Metrics across visible/filtered data
@@ -653,7 +707,7 @@ function renderCurrentView() {
   if (!groupsContainer) return;
   groupsContainer.replaceChildren();
 
-  if (allCandidatesFlat.length === 0 && visiblePartyNames?.size !== 0) {
+  if (allCandidatesFlat.length === 0 && !contests.some(hasEmptyCandidateFilter)) {
     const emptyCard = document.createElement("div");
     emptyCard.className = "group-card";
     emptyCard.innerHTML = `<div class="empty-row">${query ? "No candidates match your search filter." : "No candidates available for this selection."}</div>`;
@@ -682,7 +736,7 @@ function renderCurrentView() {
       }
 
       const card = document.createElement("article");
-      card.className = `group-card ${cardCatClass}${contestGroup.categoryKey === "party_list" && partyFilterOpen ? " party-filter-active" : ""}`;
+      card.className = `group-card ${cardCatClass}${activeCandidateFilterKey === getContestFilterKey(contestGroup) ? " party-filter-active" : ""}`;
 
       // Attractive Standalone Header Banner
       const header = document.createElement("header");
@@ -697,17 +751,20 @@ function renderCurrentView() {
             <h3 class="group-card-title">${formatContestTitleHtml(contestGroup.friendly_name, contestGroup.categoryKey)}</h3>
           </div>
         </div>
-        <div class="group-header-stats">
-          <span class="stat-pill"><i data-lucide="user-check"></i> <strong>${contestGroup.candidates.length}</strong> Candidates</span>
-          <span class="stat-pill"><i data-lucide="vote"></i> <strong>${contestTotal.toLocaleString()}</strong> Votes</span>
+        <div class="group-header-actions">
+          <div class="group-header-stats">
+            <span class="stat-pill stat-pill-candidates"><i data-lucide="user-check"></i> <strong>${contestGroup.candidates.length}</strong> Candidates</span>
+            <span class="stat-pill stat-pill-votes"><i data-lucide="vote"></i> <strong>${contestTotal.toLocaleString()}</strong> Votes</span>
+          </div>
         </div>
       `;
 
-      if (contestGroup.categoryKey === "party_list") {
-        header.querySelector(".group-header-stats").after(createPartyFilterControl(getAllContests().find((contest) =>
-          contest.categoryKey === "party_list" && contest.contest_name === contestGroup.contest_name
-        ) || contestGroup));
-      }
+      const sourceContest = getAllContests().find((contest) =>
+        contest.categoryKey === contestGroup.categoryKey && contest.contest_name === contestGroup.contest_name
+      ) || contestGroup;
+      header.querySelector(".group-header-actions").append(
+        createCandidateFilterControl(sourceContest)
+      );
 
       // Standalone Table
       const tableWrap = document.createElement("div");
@@ -973,16 +1030,16 @@ if (categoryTabs) {
 }
 
 document.addEventListener("click", (event) => {
-  if (partyFilterOpen && !event.target.closest(".party-filter-control")) {
-    partyFilterOpen = false;
-    renderCurrentView();
+  if (activeCandidateFilterKey && !event.target.closest(".party-filter-control")) {
+    activeCandidateFilterKey = null;
+    renderCurrentViewPreservingScroll();
   }
 });
 
 document.addEventListener("keydown", (event) => {
-  if (partyFilterOpen && event.key === "Escape") {
-    partyFilterOpen = false;
-    renderCurrentView();
+  if (activeCandidateFilterKey && event.key === "Escape") {
+    activeCandidateFilterKey = null;
+    renderCurrentViewPreservingScroll();
   }
 });
 

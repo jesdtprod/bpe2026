@@ -349,15 +349,85 @@ h1#page-title {
   border-radius: var(--radius-md);
 }
 
+/* ==========================================================================
+   Political Party Filter Popover & Dropdown
+   ========================================================================== */
 .party-filter-control {
   position: relative;
   flex-shrink: 0;
 }
 
+.party-report-button {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  color: var(--text-secondary);
+}
+
+.party-report-button:hover {
+  color: var(--brand-primary);
+  background: var(--brand-primary-light);
+  border-color: var(--brand-primary-border);
+}
+
 .group-card.party-filter-active {
   position: relative;
-  z-index: 5;
+  z-index: 15;
   overflow: visible;
+}
+
+.group-card.party-filter-active .group-card-header {
+  border-radius: inherit;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.party-filter-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  max-width: 32px;
+  max-height: 32px;
+  padding: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.party-filter-button .btn-icon,
+.party-filter-button svg,
+.party-filter-button i,
+.party-filter-button .lucide {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.party-filter-button:hover {
+  background: var(--bg-surface-subtle);
+  color: var(--text-primary);
+  border-color: var(--border-card);
+  transform: translateY(-1px);
+}
+
+.party-filter-button.is-active {
+  background: var(--brand-primary-light);
+  color: var(--brand-primary);
+  border-color: var(--brand-primary-border);
+  box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.14);
 }
 
 .party-filter-button.is-filtered {
@@ -366,80 +436,207 @@ h1#page-title {
   border-color: var(--brand-primary-border);
 }
 
-.party-filter-menu {
+.party-filter-indicator {
   position: absolute;
-  z-index: 20;
-  top: calc(100% + 8px);
-  right: 0;
-  width: min(300px, calc(100vw - 40px));
-  padding: 12px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  background: var(--brand-primary);
+  border-radius: 9999px;
+  border: 1px solid var(--bg-surface);
 }
 
-.party-filter-menu-head,
-.party-filter-menu-actions,
-.party-filter-option {
-  display: flex;
-  align-items: center;
+@keyframes partyFilterPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.party-filter-menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 290px;
+  max-width: calc(100vw - 32px);
+  padding: 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.14), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+  animation: partyFilterPopIn 0.18s var(--ease-inertial);
 }
 
 .party-filter-menu-head {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  color: var(--text-primary);
-  font-size: 0.82rem;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.party-filter-menu-head span {
-  color: var(--text-muted);
-  font-size: 0.74rem;
+.party-filter-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.party-filter-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--brand-primary);
+  background: var(--brand-primary-light);
+  border: 1px solid var(--brand-primary-border);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
   white-space: nowrap;
 }
 
 .party-filter-menu-actions {
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 8px 0;
 }
 
-.party-filter-text-action {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--brand-primary);
-  font: inherit;
-  font-size: 0.76rem;
-  font-weight: 700;
+.party-filter-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+
+.party-filter-action-btn .action-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.party-filter-action-btn:hover {
+  background: var(--brand-primary-light);
+  color: var(--brand-primary);
+  border-color: var(--brand-primary-border);
 }
 
 .party-filter-options {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 2px;
-  max-height: 260px;
-  margin-top: 8px;
+  max-height: 240px;
+  margin-top: 4px;
   overflow-y: auto;
+  padding-right: 4px;
+}
+
+.party-filter-options::-webkit-scrollbar {
+  width: 5px;
+}
+
+.party-filter-options::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.party-filter-options::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.party-filter-options::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-primary);
 }
 
 .party-filter-option {
-  gap: 9px;
-  padding: 7px 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 0.82rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+  position: relative;
 }
 
-.party-filter-option:hover { background: var(--bg-surface-subtle); }
+.party-filter-option:hover {
+  background: var(--bg-surface-subtle);
+  color: var(--text-primary);
+}
 
-.party-filter-option input {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--brand-primary);
+.party-filter-option.is-checked {
+  color: var(--text-primary);
+}
+
+.party-filter-checkbox-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.party-filter-custom-check {
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.party-filter-custom-check .check-svg {
+  width: 12px;
+  height: 12px;
+  stroke: #ffffff;
+  stroke-width: 2.8;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: all 0.15s var(--ease-inertial);
+}
+
+.party-filter-checkbox-input:checked + .party-filter-custom-check {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+
+.party-filter-checkbox-input:checked + .party-filter-custom-check .check-svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.party-filter-checkbox-input:focus-visible + .party-filter-custom-check {
+  box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.2);
+  border-color: var(--brand-primary);
+}
+
+.party-filter-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .btn:disabled {
@@ -1320,6 +1517,13 @@ h2#breakdown-title {
   border-color: #a7f3d0;
 }
 
+.group-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .group-header-stats {
   display: flex;
   align-items: center;
@@ -1331,20 +1535,54 @@ h2#breakdown-title {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  height: 32px;
+  padding: 0 12px;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-secondary);
-  background: #ffffff;
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
-  padding: 4px 12px;
   font-variant-numeric: tabular-nums;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.stat-pill:hover {
+  background: var(--bg-surface-subtle);
+  border-color: var(--border-card);
+  color: var(--text-primary);
+  transform: translateY(-1px);
 }
 
 .stat-pill strong {
-  font-weight: 800;
+  font-weight: 700;
   color: var(--text-primary);
+}
+
+.stat-pill i,
+.stat-pill .lucide {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: color var(--transition-fast);
+}
+
+.stat-pill.stat-pill-candidates i,
+.stat-pill.stat-pill-candidates .lucide {
+  color: var(--brand-blue);
+}
+
+.stat-pill.stat-pill-votes i,
+.stat-pill.stat-pill-votes .lucide {
+  color: var(--brand-primary);
+}
+
+.stat-pill:hover i,
+.stat-pill:hover .lucide {
+  color: var(--brand-primary);
 }
 
 .group-card .table-wrap {
@@ -1690,6 +1928,44 @@ h2#breakdown-title {
   animation: skeleton-shimmer 1.5s infinite var(--ease-inertial);
   border: 1.5px solid #e2e8f0;
   border-radius: var(--radius-full);
+}
+
+.skeleton-row td {
+  vertical-align: middle;
+  padding: 12px 14px;
+}
+
+.skeleton-row .ballot-col {
+  text-align: center;
+}
+
+.skeleton-row .rank-col {
+  text-align: center;
+}
+
+.skeleton-row .party-cell {
+  vertical-align: middle;
+}
+
+.skeleton-row .party-cell .skeleton-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.skeleton-row .share-col .share-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+}
+
+.skeleton-row .vote-total .skeleton-stack,
+.skeleton-row .votes-column .skeleton-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
 }
 
 @keyframes skeleton-shimmer {

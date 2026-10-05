@@ -1,4 +1,5 @@
 import { loadDashboardSnapshot, loadLiveBreakdown } from "./supabase-dashboard.js";
+import { closeCandidateFilter, createCandidateFilter, filterCandidateRows, getCandidateFilterKey, hasOpenCandidateFilter } from "./candidate-filter.js";
 
 // ===========================================================================
 // Election Return Breakdown Controller - Executive Civic Edition
@@ -233,10 +234,23 @@ function getActiveMunicipality() {
   return prov?.municipalities?.find((m) => m.municipality === municipalitySelect.value);
 }
 
+function renderWithFilter(focusedCandidate = "", filterKey = "") {
+  const { scrollX, scrollY } = window;
+  const previousHeight = content?.offsetHeight || 0;
+  if (content) content.style.minHeight = hasOpenCandidateFilter() && previousHeight ? `${previousHeight}px` : "";
+  render();
+  requestAnimationFrame(() => {
+    if (focusedCandidate && filterKey) {
+      document.querySelector(`.candidate-filter-mount input[data-candidate-name="${CSS.escape(focusedCandidate)}"][data-filter-key="${CSS.escape(filterKey)}"]`)?.focus({ preventScroll: true });
+    }
+    window.scrollTo(scrollX, scrollY);
+  });
+}
+
 // Builds standalone .group-card for each category/sector with ballot-number badges.
 function makeTableCard(title, categoryKey, rows, barangays, sectorTagText) {
   const query = searchQuery.trim().toLowerCase();
-  const filteredRows = query
+  const searchedRows = query
     ? rows.filter(
         (r) =>
           r.name.toLowerCase().includes(query) ||
@@ -245,17 +259,8 @@ function makeTableCard(title, categoryKey, rows, barangays, sectorTagText) {
       )
     : rows;
 
-  if (filteredRows.length === 0) {
-    const emptyCard = document.createElement("article");
-    emptyCard.className = "group-card";
-    emptyCard.innerHTML = `
-      <header class="group-card-header">
-        <h3 class="group-card-title">${title}</h3>
-      </header>
-      <div class="empty-row">No entries match "${searchQuery}".</div>
-    `;
-    return emptyCard;
-  }
+  const filterKey = getCandidateFilterKey(categoryKey, title);
+  const filteredRows = filterCandidateRows(filterKey, searchedRows);
 
   const totalVotesInGroup = filteredRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
   const cardCatClass = categoryKey === "party_list" ? "group-party" : categoryKey === "district" ? "group-district" : "group-sectoral";
@@ -276,12 +281,18 @@ function makeTableCard(title, categoryKey, rows, barangays, sectorTagText) {
           <h3 class="group-card-title">${formatContestTitleHtml(title, categoryKey)}</h3>
         </div>
       </div>
-      <div class="group-header-stats">
-        <span class="stat-pill"><i data-lucide="user-check"></i> <strong>${filteredRows.length}</strong> Candidates</span>
-        <span class="stat-pill"><i data-lucide="vote"></i> <strong>${totalVotesInGroup.toLocaleString()}</strong> Votes</span>
+      <div class="group-header-actions">
+        <div class="group-header-stats">
+          <span class="stat-pill"><i data-lucide="user-check"></i> <strong>${filteredRows.length}</strong> Candidates</span>
+          <span class="stat-pill"><i data-lucide="vote"></i> <strong>${totalVotesInGroup.toLocaleString()}</strong> Votes</span>
+        </div>
       </div>
     </header>
   `;
+  const filterMount = document.createElement("div");
+  filterMount.className = "candidate-filter-mount province-column-filter";
+  card.querySelector(".group-header-actions").append(filterMount);
+  createCandidateFilter({ mount: filterMount, card, categoryKey, title, rows, onChange: renderWithFilter });
 
   const wrap = document.createElement("div");
   wrap.className = "table-wrap province-table-wrap";
@@ -342,6 +353,12 @@ function makeTableCard(title, categoryKey, rows, barangays, sectorTagText) {
   table.append(thead);
 
   const tbody = document.createElement("tbody");
+  if (filteredRows.length === 0) {
+    const row = document.createElement("tr");
+    const precinctCount = barangays.reduce((sum, barangay) => sum + barangay.precincts.length, 0);
+    row.innerHTML = `<td colspan="${precinctCount + 2}" class="empty-row">No candidates selected.</td>`;
+    tbody.append(row);
+  }
   filteredRows.forEach((entry, idx) => {
     const row = document.createElement("tr");
 
@@ -744,6 +761,13 @@ municipalitySelect?.addEventListener("change", () => {
 searchInput?.addEventListener("input", (e) => {
   searchQuery = e.target.value;
   render();
+});
+
+document.addEventListener("click", (event) => {
+  if (hasOpenCandidateFilter() && !event.target.closest(".candidate-filter-mount") && closeCandidateFilter()) renderWithFilter();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && closeCandidateFilter()) renderWithFilter();
 });
 
 refreshBtn?.addEventListener("click", () => {

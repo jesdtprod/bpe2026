@@ -1,4 +1,5 @@
 import { loadDashboardSnapshot, loadLiveBreakdown } from "./supabase-dashboard.js";
+import { closeCandidateFilter, createCandidateFilter, filterCandidateRows, getCandidateFilterKey, hasOpenCandidateFilter } from "./candidate-filter.js";
 
 // ===========================================================================
 // City & Municipality Vote Breakdown Controller - Executive Civic Edition
@@ -195,10 +196,23 @@ function formatContestTitleHtml(title, categoryKey) {
   return title;
 }
 
+function renderWithFilter(focusedCandidate = "", filterKey = "") {
+  const { scrollX, scrollY } = window;
+  const previousHeight = content?.offsetHeight || 0;
+  if (content) content.style.minHeight = hasOpenCandidateFilter() && previousHeight ? `${previousHeight}px` : "";
+  renderActiveProvince();
+  requestAnimationFrame(() => {
+    if (focusedCandidate && filterKey) {
+      document.querySelector(`.candidate-filter-mount input[data-candidate-name="${CSS.escape(focusedCandidate)}"][data-filter-key="${CSS.escape(filterKey)}"]`)?.focus({ preventScroll: true });
+    }
+    window.scrollTo(scrollX, scrollY);
+  });
+}
+
 function makeTableCard(title, categoryKey, rows, municipalities, sectorTagText) {
   const query = searchQuery.trim().toLowerCase();
   const orderedRows = [...(rows || [])].sort((a, b) => Number(b.total || 0) - Number(a.total || 0) || (a.ballot_order || 9999) - (b.ballot_order || 9999) || a.name.localeCompare(b.name));
-  const filteredRows = query
+  const searchedRows = query
     ? orderedRows.filter(
         (r) =>
           r.name.toLowerCase().includes(query) ||
@@ -207,17 +221,8 @@ function makeTableCard(title, categoryKey, rows, municipalities, sectorTagText) 
       )
     : orderedRows;
 
-  if (filteredRows.length === 0) {
-    const emptyCard = document.createElement("article");
-    emptyCard.className = "group-card";
-    emptyCard.innerHTML = `
-      <header class="group-card-header">
-        <h3 class="group-card-title">${title}</h3>
-      </header>
-      <div class="empty-row">No entries match "${searchQuery}".</div>
-    `;
-    return emptyCard;
-  }
+  const filterKey = getCandidateFilterKey(categoryKey, title);
+  const filteredRows = filterCandidateRows(filterKey, searchedRows);
 
   const totalVotesInGroup = filteredRows.reduce((sum, r) => sum + (r.total || 0), 0);
   const cardCatClass = categoryKey === "party_list" ? "group-party" : categoryKey === "district" ? "group-district" : "group-sectoral";
@@ -238,12 +243,18 @@ function makeTableCard(title, categoryKey, rows, municipalities, sectorTagText) 
           <h3 class="group-card-title">${formatContestTitleHtml(title, categoryKey)}</h3>
         </div>
       </div>
-      <div class="group-header-stats">
-        <span class="stat-pill"><i data-lucide="user-check"></i> <strong>${filteredRows.length}</strong> Candidates</span>
-        <span class="stat-pill"><i data-lucide="vote"></i> <strong>${totalVotesInGroup.toLocaleString()}</strong> Votes</span>
+      <div class="group-header-actions">
+        <div class="group-header-stats">
+          <span class="stat-pill"><i data-lucide="user-check"></i> <strong>${filteredRows.length}</strong> Candidates</span>
+          <span class="stat-pill"><i data-lucide="vote"></i> <strong>${totalVotesInGroup.toLocaleString()}</strong> Votes</span>
+        </div>
       </div>
     </header>
   `;
+  const filterMount = document.createElement("div");
+  filterMount.className = "candidate-filter-mount province-column-filter";
+  card.querySelector(".group-header-actions").append(filterMount);
+  createCandidateFilter({ mount: filterMount, card, categoryKey, title, rows, onChange: renderWithFilter });
 
   const wrap = document.createElement("div");
   wrap.className = "table-wrap province-table-wrap";
@@ -276,6 +287,11 @@ function makeTableCard(title, categoryKey, rows, municipalities, sectorTagText) 
   table.append(head);
 
   const body = document.createElement("tbody");
+  if (filteredRows.length === 0) {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td colspan="${municipalities.length + 2}" class="empty-row">No candidates selected.</td>`;
+    body.append(row);
+  }
   filteredRows.forEach((entry, idx) => {
     const row = document.createElement("tr");
     const nameCell = document.createElement("td");
@@ -600,6 +616,13 @@ if (searchInput) {
     renderActiveProvince();
   });
 }
+
+document.addEventListener("click", (event) => {
+  if (hasOpenCandidateFilter() && !event.target.closest(".candidate-filter-mount") && closeCandidateFilter()) renderWithFilter();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && closeCandidateFilter()) renderWithFilter();
+});
 
 // Refresh Button Listener
 if (refreshBtn) {
