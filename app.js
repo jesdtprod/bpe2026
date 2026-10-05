@@ -668,7 +668,7 @@ function renderCurrentView() {
       }
 
       const card = document.createElement("article");
-      card.className = `group-card ${cardCatClass}`;
+      card.className = `group-card ${cardCatClass}${contestGroup.categoryKey === "party_list" && partyFilterOpen ? " party-filter-active" : ""}`;
 
       // Attractive Standalone Header Banner
       const header = document.createElement("header");
