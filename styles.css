@@ -349,6 +349,93 @@ h1#page-title {
   border-radius: var(--radius-md);
 }
 
+.party-filter-control {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.party-filter-button.is-filtered {
+  color: var(--brand-primary);
+  background: var(--brand-primary-light);
+  border-color: var(--brand-primary-border);
+}
+
+.party-filter-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(300px, calc(100vw - 40px));
+  padding: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+}
+
+.party-filter-menu-head,
+.party-filter-menu-actions,
+.party-filter-option {
+  display: flex;
+  align-items: center;
+}
+
+.party-filter-menu-head {
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+}
+
+.party-filter-menu-head span {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.party-filter-menu-actions {
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.party-filter-text-action {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--brand-primary);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.party-filter-options {
+  display: grid;
+  gap: 2px;
+  max-height: 260px;
+  margin-top: 8px;
+  overflow-y: auto;
+}
+
+.party-filter-option {
+  gap: 9px;
+  padding: 7px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.party-filter-option:hover { background: var(--bg-surface-subtle); }
+
+.party-filter-option input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--brand-primary);
+}
+
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;

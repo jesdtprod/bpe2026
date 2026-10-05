@@ -43,6 +43,8 @@ let currentCategory = "all"; // Sequence: all, Political Party, district rep, se
 let currentSubfilter = "all";
 let isGrouped = true;
 let isProvinceBreakdown = false;
+let visiblePartyNames = null;
+let partyFilterOpen = false;
 
 // ==========================================================================
 // Helper functions for Contest Titles & Groups
@@ -403,6 +405,82 @@ function getContestsForActiveCategory() {
   return filtered;
 }
 
+function getPoliticalPartyNames(contest) {
+  return [...new Set(contest.candidates.map((candidate) => candidate.name))]
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function isVisiblePartyCandidate(candidate, categoryKey) {
+  return categoryKey !== "party_list" || !visiblePartyNames || visiblePartyNames.has(candidate.name);
+}
+
+function createPartyFilterControl(contest) {
+  const control = document.createElement("div");
+  control.className = "party-filter-control";
+  const partyNames = getPoliticalPartyNames(contest);
+  const selectedCount = visiblePartyNames ? visiblePartyNames.size : partyNames.length;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `btn btn-ghost btn-icon-only party-filter-button ${visiblePartyNames ? "is-filtered" : ""}`;
+  button.title = "Filter political parties";
+  button.setAttribute("aria-label", "Filter political parties");
+  button.setAttribute("aria-expanded", String(partyFilterOpen));
+  button.innerHTML = '<i data-lucide="list-filter" class="btn-icon"></i>';
+  button.onclick = (event) => {
+    event.stopPropagation();
+    partyFilterOpen = !partyFilterOpen;
+    renderCurrentView();
+  };
+  control.append(button);
+
+  if (!partyFilterOpen) return control;
+
+  const menu = document.createElement("div");
+  menu.className = "party-filter-menu";
+  menu.setAttribute("role", "dialog");
+  menu.setAttribute("aria-label", "Filter political parties");
+  menu.innerHTML = `
+    <div class="party-filter-menu-head">
+      <strong>Show political parties</strong>
+      <span>${selectedCount} of ${partyNames.length}</span>
+    </div>
+    <div class="party-filter-menu-actions">
+      <button type="button" class="party-filter-text-action" data-party-filter-action="all">Select all</button>
+    </div>
+    <div class="party-filter-options"></div>
+  `;
+  menu.querySelectorAll("[data-party-filter-action]").forEach((action) => {
+    action.onclick = (event) => {
+      event.stopPropagation();
+      visiblePartyNames = null;
+      renderCurrentView();
+    };
+  });
+  const options = menu.querySelector(".party-filter-options");
+  partyNames.forEach((name) => {
+    const option = document.createElement("label");
+    option.className = "party-filter-option";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = !visiblePartyNames || visiblePartyNames.has(name);
+    checkbox.onchange = () => {
+      const selected = new Set(visiblePartyNames || partyNames);
+      checkbox.checked ? selected.add(name) : selected.delete(name);
+      if (selected.size === 0) {
+        selected.add(name);
+        checkbox.checked = true;
+      }
+      visiblePartyNames = selected.size === partyNames.length ? null : selected;
+      renderCurrentView();
+    };
+    option.append(checkbox, document.createTextNode(name));
+    options.append(option);
+  });
+  control.append(menu);
+  return control;
+}
+
 // ==========================================================================
 // Subfilter Pills (All, Political Party, Sectoral, District Rep...)
 // ==========================================================================
@@ -494,12 +572,17 @@ function renderCurrentView() {
   if (query) {
     contests = contests.map((c) => {
       const filteredCandidates = c.candidates.filter((cand) => {
-        return cand.name.toLowerCase().includes(query) ||
+        return isVisiblePartyCandidate(cand, c.categoryKey) && (cand.name.toLowerCase().includes(query) ||
                c.contest_name.toLowerCase().includes(query) ||
-               c.friendly_name.toLowerCase().includes(query);
+               c.friendly_name.toLowerCase().includes(query));
       });
       return { ...c, candidates: filteredCandidates };
     }).filter((c) => c.candidates.length > 0);
+  } else {
+    contests = contests.map((c) => ({
+      ...c,
+      candidates: c.candidates.filter((cand) => isVisiblePartyCandidate(cand, c.categoryKey))
+    })).filter((c) => c.candidates.length > 0);
   }
 
   // Compute Metrics across visible/filtered data
@@ -608,6 +691,12 @@ function renderCurrentView() {
           <span class="stat-pill"><i data-lucide="vote"></i> <strong>${contestTotal.toLocaleString()}</strong> Votes</span>
         </div>
       `;
+
+      if (contestGroup.categoryKey === "party_list") {
+        header.querySelector(".group-header-stats").after(createPartyFilterControl(getAllContests().find((contest) =>
+          contest.categoryKey === "party_list" && contest.contest_name === contestGroup.contest_name
+        ) || contestGroup));
+      }
 
       // Standalone Table
       const tableWrap = document.createElement("div");
@@ -871,6 +960,20 @@ if (categoryTabs) {
     renderCurrentView();
   });
 }
+
+document.addEventListener("click", (event) => {
+  if (partyFilterOpen && !event.target.closest(".party-filter-control")) {
+    partyFilterOpen = false;
+    renderCurrentView();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (partyFilterOpen && event.key === "Escape") {
+    partyFilterOpen = false;
+    renderCurrentView();
+  }
+});
 
 // Group Toggle Switch
 if (groupToggle) {
