@@ -447,13 +447,14 @@ function createPartyFilterControl(contest) {
     </div>
     <div class="party-filter-menu-actions">
       <button type="button" class="party-filter-text-action" data-party-filter-action="all">Select all</button>
+      <button type="button" class="party-filter-text-action" data-party-filter-action="none">Deselect all</button>
     </div>
     <div class="party-filter-options"></div>
   `;
   menu.querySelectorAll("[data-party-filter-action]").forEach((action) => {
     action.onclick = (event) => {
       event.stopPropagation();
-      visiblePartyNames = null;
+      visiblePartyNames = action.dataset.partyFilterAction === "all" ? null : new Set();
       renderCurrentView();
     };
   });
@@ -467,10 +468,6 @@ function createPartyFilterControl(contest) {
     checkbox.onchange = () => {
       const selected = new Set(visiblePartyNames || partyNames);
       checkbox.checked ? selected.add(name) : selected.delete(name);
-      if (selected.size === 0) {
-        selected.add(name);
-        checkbox.checked = true;
-      }
       visiblePartyNames = selected.size === partyNames.length ? null : selected;
       renderCurrentView();
     };
@@ -577,12 +574,12 @@ function renderCurrentView() {
                c.friendly_name.toLowerCase().includes(query));
       });
       return { ...c, candidates: filteredCandidates };
-    }).filter((c) => c.candidates.length > 0);
+    }).filter((c) => c.candidates.length > 0 || (c.categoryKey === "party_list" && visiblePartyNames?.size === 0));
   } else {
     contests = contests.map((c) => ({
       ...c,
       candidates: c.candidates.filter((cand) => isVisiblePartyCandidate(cand, c.categoryKey))
-    })).filter((c) => c.candidates.length > 0);
+    })).filter((c) => c.candidates.length > 0 || (c.categoryKey === "party_list" && visiblePartyNames?.size === 0));
   }
 
   // Compute Metrics across visible/filtered data
@@ -642,7 +639,7 @@ function renderCurrentView() {
   if (!groupsContainer) return;
   groupsContainer.replaceChildren();
 
-  if (allCandidatesFlat.length === 0) {
+  if (allCandidatesFlat.length === 0 && visiblePartyNames?.size !== 0) {
     const emptyCard = document.createElement("div");
     emptyCard.className = "group-card";
     emptyCard.innerHTML = `<div class="empty-row">${query ? "No candidates match your search filter." : "No candidates available for this selection."}</div>`;
