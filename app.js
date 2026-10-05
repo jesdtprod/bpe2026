@@ -414,10 +414,17 @@ function isVisiblePartyCandidate(candidate, categoryKey) {
   return categoryKey !== "party_list" || !visiblePartyNames || visiblePartyNames.has(candidate.name);
 }
 
-function renderCurrentViewPreservingScroll() {
+function renderCurrentViewPreservingScroll(focusedPartyName = "") {
   const { scrollX, scrollY } = window;
   renderCurrentView();
-  window.scrollTo(scrollX, scrollY);
+  requestAnimationFrame(() => {
+    if (focusedPartyName) {
+      const replacement = [...document.querySelectorAll(".party-filter-option input")]
+        .find((input) => input.dataset.partyName === focusedPartyName);
+      replacement?.focus({ preventScroll: true });
+    }
+    window.scrollTo(scrollX, scrollY);
+  });
 }
 
 function createPartyFilterControl(contest) {
@@ -470,12 +477,13 @@ function createPartyFilterControl(contest) {
     option.className = "party-filter-option";
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
+    checkbox.dataset.partyName = name;
     checkbox.checked = !visiblePartyNames || visiblePartyNames.has(name);
     checkbox.onchange = () => {
       const selected = new Set(visiblePartyNames || partyNames);
       checkbox.checked ? selected.add(name) : selected.delete(name);
       visiblePartyNames = selected.size === partyNames.length ? null : selected;
-      renderCurrentViewPreservingScroll();
+      renderCurrentViewPreservingScroll(name);
     };
     option.append(checkbox, document.createTextNode(name));
     options.append(option);
