@@ -414,6 +414,12 @@ function isVisiblePartyCandidate(candidate, categoryKey) {
   return categoryKey !== "party_list" || !visiblePartyNames || visiblePartyNames.has(candidate.name);
 }
 
+function renderCurrentViewPreservingScroll() {
+  const { scrollX, scrollY } = window;
+  renderCurrentView();
+  window.scrollTo(scrollX, scrollY);
+}
+
 function createPartyFilterControl(contest) {
   const control = document.createElement("div");
   control.className = "party-filter-control";
@@ -455,7 +461,7 @@ function createPartyFilterControl(contest) {
     action.onclick = (event) => {
       event.stopPropagation();
       visiblePartyNames = action.dataset.partyFilterAction === "all" ? null : new Set();
-      renderCurrentView();
+      renderCurrentViewPreservingScroll();
     };
   });
   const options = menu.querySelector(".party-filter-options");
@@ -469,7 +475,7 @@ function createPartyFilterControl(contest) {
       const selected = new Set(visiblePartyNames || partyNames);
       checkbox.checked ? selected.add(name) : selected.delete(name);
       visiblePartyNames = selected.size === partyNames.length ? null : selected;
-      renderCurrentView();
+      renderCurrentViewPreservingScroll();
     };
     option.append(checkbox, document.createTextNode(name));
     options.append(option);
