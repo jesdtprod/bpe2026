@@ -1043,6 +1043,13 @@ h2#breakdown-title {
   flex-wrap: wrap;
   position: relative;
   z-index: 50;
+  margin-left: auto;
+}
+
+.table-actions:has(.smooth-dropdown-bar),
+.table-actions:has(.smooth-dropdown) {
+  width: 100%;
+  margin-left: 0;
 }
 
 .filter-select select {
@@ -1074,6 +1081,7 @@ h2#breakdown-title {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  margin-left: auto;
 }
 
 .search-box {
