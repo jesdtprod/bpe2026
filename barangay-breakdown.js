@@ -1,5 +1,6 @@
 import { loadDashboardSnapshot, loadLiveBreakdown } from "./supabase-dashboard.js";
 import { closeCandidateFilter, createCandidateFilter, filterCandidateRows, getCandidateFilterKey, hasOpenCandidateFilter } from "./candidate-filter.js";
+import { createBreakdownPdfExportButton } from "./breakdown-pdf-export.js";
 
 // ===========================================================================
 // Barangay Vote Breakdown Controller - Executive Civic Edition
@@ -367,6 +368,39 @@ function makeTableCard(title, categoryKey, rows, barangays, sectorTagText) {
   filterMount.className = "candidate-filter-mount province-column-filter";
   card.querySelector(".group-header-actions").append(filterMount);
   createCandidateFilter({ mount: filterMount, card, categoryKey, title, rows, onChange: renderWithFilter });
+  const selectedProv = provinceSelect ? provinceSelect.value : "";
+  const selectedMuni = municipalitySelect ? municipalitySelect.value : "";
+  const reportTitle = categoryKey === "party_list"
+    ? "Political Party Vote Breakdown"
+    : categoryKey === "district"
+    ? `${title} — Barangay Tabulation`
+    : `${title} — Barangay Tabulation`;
+
+  const reportSubtitle = categoryKey === "party_list"
+    ? `Bangsamoro Parliamentary Elections 2026 • Official Party-List Tabulation by Barangay (${selectedMuni}, ${selectedProv})`
+    : categoryKey === "district"
+    ? `Bangsamoro Parliamentary Elections 2026 • Official Legislative District Tabulation by Barangay (${selectedMuni}, ${selectedProv})`
+    : `Bangsamoro Parliamentary Elections 2026 • Official Sectoral Tabulation by Barangay (${selectedMuni}, ${selectedProv})`;
+
+  const scopeLabel = categoryKey === "party_list"
+    ? `${selectedMuni.toUpperCase()} BARANGAY RETURNS`
+    : categoryKey === "district"
+    ? `${selectedMuni.toUpperCase()} DISTRICT RETURNS`
+    : `${(sectorTagText || "SECTORAL").toUpperCase()} • ${selectedMuni.toUpperCase()}`;
+
+  card.querySelector(".group-header-actions").append(createBreakdownPdfExportButton({
+    reportTitle,
+    subtitle: reportSubtitle,
+    scopeLabel,
+    tableTitle: title,
+    categoryKey,
+    province: selectedProv,
+    municipality: selectedMuni,
+    rows: filteredRows,
+    columns: barangays.map((barangay) => ({ label: barangay, value: (row) => row.barangay_votes?.[barangay] })),
+    filename: `${selectedMuni ? selectedMuni.toLowerCase() + "-" : ""}${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`,
+    onError: (text) => showToast(text, "error"),
+  }));
 
   const wrap = document.createElement("div");
   wrap.className = "table-wrap province-table-wrap";

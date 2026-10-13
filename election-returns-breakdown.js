@@ -1,5 +1,6 @@
 import { loadDashboardSnapshot, loadLiveBreakdown } from "./supabase-dashboard.js";
 import { closeCandidateFilter, createCandidateFilter, filterCandidateRows, getCandidateFilterKey, hasOpenCandidateFilter } from "./candidate-filter.js";
+import { createBreakdownPdfExportButton } from "./breakdown-pdf-export.js";
 
 // ===========================================================================
 // Election Return Breakdown Controller - Executive Civic Edition
@@ -293,6 +294,53 @@ function makeTableCard(title, categoryKey, rows, barangays, sectorTagText) {
   filterMount.className = "candidate-filter-mount province-column-filter";
   card.querySelector(".group-header-actions").append(filterMount);
   createCandidateFilter({ mount: filterMount, card, categoryKey, title, rows, onChange: renderWithFilter });
+  const selectedProv = provinceSelect ? provinceSelect.value : "";
+  const selectedMuni = getActiveMunicipality()?.municipality || (municipalitySelect ? municipalitySelect.value : "");
+
+  const reportTitle = categoryKey === "party_list"
+    ? "Political Party Election Returns"
+    : categoryKey === "district"
+    ? `${title} — Election Returns`
+    : `${title} — Election Returns`;
+
+  const reportSubtitle = categoryKey === "party_list"
+    ? `Bangsamoro Parliamentary Elections 2026 • Official Clustered Precinct Tabulation by Barangay (${selectedMuni}, ${selectedProv})`
+    : categoryKey === "district"
+    ? `Bangsamoro Parliamentary Elections 2026 • Official Clustered Precinct Tabulation by Barangay (${selectedMuni}, ${selectedProv})`
+    : `Bangsamoro Parliamentary Elections 2026 • Official Sectoral Precinct Tabulation (${selectedMuni}, ${selectedProv})`;
+
+  const scopeLabel = categoryKey === "party_list"
+    ? `${selectedMuni.toUpperCase()} ELECTION RETURNS`
+    : categoryKey === "district"
+    ? `${selectedMuni.toUpperCase()} DISTRICT RETURNS`
+    : `${(sectorTagText || "SECTORAL").toUpperCase()} • ${selectedMuni.toUpperCase()}`;
+
+  // Structure groups by barangay so every new barangay starts on a new page
+  const barangayGroups = (barangays || []).map((b) => ({
+    name: b.barangay,
+    columns: (b.precincts || []).map((precinct) => ({
+      label: precinct,
+      value: (row) => row.barangay_votes?.[b.barangay]?.[precinct],
+    })),
+  }));
+
+  card.querySelector(".group-header-actions").append(createBreakdownPdfExportButton({
+    reportTitle,
+    subtitle: reportSubtitle,
+    scopeLabel,
+    tableTitle: title,
+    categoryKey,
+    province: selectedProv,
+    municipality: selectedMuni,
+    rows: filteredRows,
+    groups: barangayGroups,
+    columns: barangays.flatMap((barangay) => (barangay.precincts || []).map((precinct) => ({
+      label: `${barangay.barangay} - ${precinct}`,
+      value: (row) => row.barangay_votes?.[barangay.barangay]?.[precinct],
+    }))),
+    filename: `${selectedMuni ? selectedMuni.toLowerCase() + "-" : ""}${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`,
+    onError: (text) => showToast(text, "error"),
+  }));
 
   const wrap = document.createElement("div");
   wrap.className = "table-wrap province-table-wrap";

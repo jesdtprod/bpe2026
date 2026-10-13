@@ -1,4 +1,5 @@
 import { loadDashboardSnapshot } from "./supabase-dashboard.js";
+import { createBreakdownPdfExportButton } from "./breakdown-pdf-export.js";
 
 // ===========================================================================
 // Province Vote Breakdown Controller - Executive Civic Edition
@@ -327,6 +328,36 @@ function makeTableCard(title, categoryKey, rows, provinces, sectorTagText = "") 
   filterMount.className = "candidate-filter-mount province-column-filter";
   card.querySelector(".group-header-actions").append(filterMount);
   renderCandidateFilter(filterMount, categoryKey, title, rows);
+  const cleanTitle = formatContestTitleHtml(title, categoryKey).replace(/<[^>]*>/g, "");
+  let reportTitle = "Province Vote Breakdown";
+  let subtitle = "Political Party, District and Sectoral Tabulation by Province";
+  let scopeLabel = "Provincial Returns";
+
+  if (categoryKey === "party_list") {
+    reportTitle = "Political Party Vote Breakdown";
+    subtitle = "Bangsamoro Parliamentary Elections 2026 • Official Party-List Tabulation by Province";
+    scopeLabel = "Party-List Tabulation";
+  } else if (categoryKey === "sectoral") {
+    reportTitle = `${cleanTitle} — Provincial Tabulation`;
+    subtitle = "Bangsamoro Parliamentary Elections 2026 • Official Sectoral Tabulation by Province";
+    scopeLabel = "Sectoral Tabulation";
+  } else if (categoryKey === "district") {
+    reportTitle = cleanTitle;
+    subtitle = "Bangsamoro Parliamentary Elections 2026 • Official Legislative District Tabulation";
+    scopeLabel = "District Tabulation";
+  }
+
+  card.querySelector(".group-header-actions").append(createBreakdownPdfExportButton({
+    reportTitle,
+    subtitle,
+    scopeLabel,
+    tableTitle: cleanTitle,
+    categoryKey,
+    rows: filteredRows,
+    columns: provinces.map((province) => ({ label: province, value: (row) => row.province_votes?.[province] })),
+    filename: `${cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`,
+    onError: (text) => showToast(text, "error"),
+  }));
   const wrap = document.createElement("div");
   wrap.className = "table-wrap province-table-wrap";
   const table = document.createElement("table");
